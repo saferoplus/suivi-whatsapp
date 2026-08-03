@@ -17,8 +17,19 @@ export default async function handler(req, res) {
         for (const m of messages) {
           console.log("DE:", m.from);
           if (m.referral) {
-            console.log("PUB:", m.referral.source_id);
-            console.log("CLID:", m.referral.ctwa_clid);
+            const donnees = {
+              ctwa_clid: m.referral.ctwa_clid,
+              source_id: m.referral.source_id,
+              date: new Date().toISOString(),
+            };
+            await redis([
+              "SET",
+              `clid:${m.from}`,
+              JSON.stringify(donnees),
+              "EX",
+              604800,
+            ]);
+            console.log("PUB ENREGISTREE:", donnees);
           } else {
             console.log("Message organique");
           }
@@ -27,6 +38,19 @@ export default async function handler(req, res) {
     }
   } catch (err) {
     console.error(err);
-    }
-  return res.status(200).json({ ok: true });
+  }
+
+  return res.status(200).send("ok");
+}
+
+async function redis(commande) {
+  const r = await fetch(process.env.KV_REST_API_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.KV_REST_API_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(commande),
+  });
+  return r.json();
 }
